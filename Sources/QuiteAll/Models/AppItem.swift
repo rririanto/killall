@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import UniformTypeIdentifiers
 
 public struct AppItem: Identifiable, Equatable, Hashable {
     public let id: pid_t
@@ -37,6 +38,37 @@ public struct AppItem: Identifiable, Equatable, Hashable {
         self.isActive = runningApp.isActive
         self.isHidden = runningApp.isHidden
         self.launchDate = runningApp.launchDate
+        self.cpuPercent = cpuPercent
+        self.memoryBytes = memoryBytes
+        self.isProtected = isProtected
+        self.isSelected = isSelected
+        self.isTerminating = false
+    }
+    
+    public init(
+        id: pid_t,
+        name: String,
+        bundleIdentifier: String? = nil,
+        icon: NSImage = NSWorkspace.shared.icon(for: .application),
+        url: URL? = nil,
+        activationPolicy: NSApplication.ActivationPolicy = .regular,
+        isActive: Bool = false,
+        isHidden: Bool = false,
+        launchDate: Date? = nil,
+        cpuPercent: Double = 0.0,
+        memoryBytes: UInt64 = 0,
+        isProtected: Bool = false,
+        isSelected: Bool = false
+    ) {
+        self.id = id
+        self.name = name
+        self.bundleIdentifier = bundleIdentifier
+        self.icon = icon
+        self.url = url
+        self.activationPolicy = activationPolicy
+        self.isActive = isActive
+        self.isHidden = isHidden
+        self.launchDate = launchDate
         self.cpuPercent = cpuPercent
         self.memoryBytes = memoryBytes
         self.isProtected = isProtected
