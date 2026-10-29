@@ -93,7 +93,8 @@ public struct MenuBarHUDView: View {
             Button {
                 state.toggleSelectAll()
             } label: {
-                let allSelected = state.selectedCount == state.quitableCount && state.quitableCount > 0
+                let targetApps = state.filteredAndSortedApps.filter { !$0.isProtected }
+                let allSelected = !targetApps.isEmpty && targetApps.allSatisfy { $0.isSelected }
                 Image(systemName: allSelected ? "checkmark.square.fill" : "square")
                     .font(.system(size: 16))
                     .foregroundColor(allSelected ? Color(red: 0.05, green: 0.52, blue: 1.0) : Color.secondary.opacity(0.55))

@@ -125,6 +125,26 @@ final class QuiteAllTests: XCTestCase {
         XCTAssertFalse(state.apps.first(where: { $0.id == 202 })?.isSelected == true)
     }
     
+    func testToggleSelectAllWithSearchFilter() {
+        let state = AppState.shared
+        let app1 = AppItem(id: 401, name: "Discord", bundleIdentifier: "com.discord", isProtected: false, isSelected: false)
+        let app2 = AppItem(id: 402, name: "Spotify", bundleIdentifier: "com.spotify.client", isProtected: false, isSelected: false)
+        let app3 = AppItem(id: 403, name: "Slack", bundleIdentifier: "com.tinyspeck.slackmacgap", isProtected: false, isSelected: false)
+        
+        state.apps = [app1, app2, app3]
+        state.selectedFilter = .all
+        state.searchText = "spot"
+        
+        // When filtered to Spotify, toggleSelectAll should only select Spotify
+        state.toggleSelectAll()
+        XCTAssertTrue(state.apps.first(where: { $0.id == 402 })?.isSelected == true)
+        XCTAssertFalse(state.apps.first(where: { $0.id == 401 })?.isSelected == true)
+        XCTAssertFalse(state.apps.first(where: { $0.id == 403 })?.isSelected == true)
+        
+        // Reset search filter
+        state.searchText = ""
+    }
+    
     func testMenuBarBadgeRunningCount() {
         let state = AppState.shared
         XCTAssertTrue(state.showAppCountInMenuBar)
@@ -138,4 +158,25 @@ final class QuiteAllTests: XCTestCase {
         XCTAssertEqual(state.totalRunningCount, 2)
         XCTAssertEqual(state.quitableCount, 1)
     }
+    
+    func testAppItemFormattedCPUAndMemory() {
+        let item = AppItem(
+            id: 501,
+            name: "HeavyApp",
+            cpuPercent: 55.4,
+            memoryBytes: 1536 * 1024 * 1024 // 1.5 GB
+        )
+        XCTAssertEqual(item.formattedCPU, "55.4%")
+        XCTAssertEqual(item.formattedMemory, "1.5 GB")
+        
+        let smallItem = AppItem(
+            id: 502,
+            name: "SmallApp",
+            cpuPercent: 0.2,
+            memoryBytes: 50 * 1024 * 1024 // 50 MB
+        )
+        XCTAssertEqual(smallItem.formattedCPU, "0.2%")
+        XCTAssertEqual(smallItem.formattedMemory, "50 MB")
+    }
 }
+

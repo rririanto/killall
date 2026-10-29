@@ -147,10 +147,10 @@ public struct AppRowView: View {
     }
     
     private var cpuColor: Color {
-        if app.cpuPercent >= 20.0 {
-            return .orange
-        } else if app.cpuPercent >= 50.0 {
+        if app.cpuPercent >= 50.0 {
             return .red
+        } else if app.cpuPercent >= 20.0 {
+            return .orange
         } else {
             return .secondary.opacity(0.85)
         }

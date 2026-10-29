@@ -177,10 +177,18 @@ public final class AppState: ObservableObject {
     }
     
     public func toggleSelectAll() {
-        let eligible = apps.filter { !$0.isProtected }
-        let allSelected = eligible.allSatisfy { $0.isSelected }
+        let isFiltered = !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedFilter != .all
+        let targetApps = isFiltered
+            ? filteredAndSortedApps.filter { !$0.isProtected }
+            : apps.filter { !$0.isProtected }
+        
+        guard !targetApps.isEmpty else { return }
+        
+        let allSelected = targetApps.allSatisfy { $0.isSelected }
+        let targetIDs = Set(targetApps.map { $0.id })
+        
         for idx in apps.indices {
-            if !apps[idx].isProtected {
+            if targetIDs.contains(apps[idx].id) && !apps[idx].isProtected {
                 apps[idx].isSelected = !allSelected
             }
         }
