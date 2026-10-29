@@ -527,7 +527,540 @@ final class QuiteAllTests: XCTestCase {
         state.removeProtectedBundleID("com.apple.finder")
         XCTAssertTrue(state.protectedBundleIDs.contains("com.apple.finder"))
     }
+    
+    // MARK: - Inactivity Watchdog Tests
+    
+    func testInactivityWatchdogTimerMechanics() {
+        let watchdog = InactivityWatchdog.shared
+        defer {
+            watchdog.stop()
+            watchdog.resetForTesting()
+        }
+        
+        XCTAssertFalse(watchdog.isRunning)
+        
+        // 1. Starting with interval 0 does not run
+        watchdog.start(intervalMinutes: 0, protectedIDs: []) { _ in }
+        XCTAssertFalse(watchdog.isRunning)
+        
+        // 2. Starting with positive interval sets isRunning
+        watchdog.start(intervalMinutes: 15, protectedIDs: []) { _ in }
+        XCTAssertTrue(watchdog.isRunning)
+        
+        // 3. Stop resets isRunning
+        watchdog.stop()
+        XCTAssertFalse(watchdog.isRunning)
+        
+        // 4. Threshold evaluation: idle app terminated, active app preserved
+        let now = Date()
+        var terminatedPIDs: [pid_t] = []
+        
+        let idleApp = MockWatchdogApp(
+            pid: 2001,
+            bundleIdentifier: "com.test.idle",
+            localizedName: "IdleApp",
+            launchDate: now.addingTimeInterval(-1800), // 30 mins ago
+            activationPolicy: .regular
+        ) {
+            terminatedPIDs.append(2001)
+        }
+        
+        let freshApp = MockWatchdogApp(
+            pid: 2002,
+            bundleIdentifier: "com.test.fresh",
+            localizedName: "FreshApp",
+            launchDate: now.addingTimeInterval(-300), // 5 mins ago
+            activationPolicy: .regular
+        ) {
+            terminatedPIDs.append(2002)
+        }
+        
+        watchdog.appsProvider = { [idleApp, freshApp] }
+        watchdog.frontmostPIDProvider = { nil }
+        watchdog.recordActivity(pid: 2001, date: now.addingTimeInterval(-1800))
+        watchdog.recordActivity(pid: 2002, date: now.addingTimeInterval(-300))
+        
+        var autoQuitReported: [String] = []
+        let terminatedNames = watchdog.checkInactiveApps(
+            thresholdSeconds: 900, // 15 mins
+            now: now,
+            protectedIDs: []
+        ) { name in
+            autoQuitReported.append(name)
+        }
+        
+        XCTAssertEqual(terminatedNames, ["IdleApp"])
+        XCTAssertEqual(terminatedPIDs, [2001])
+        XCTAssertEqual(autoQuitReported, ["IdleApp"])
+    }
+    
+    func testInactivityWatchdogExcludesProtectedAndFrontmostApps() {
+        let watchdog = InactivityWatchdog.shared
+        defer {
+            watchdog.stop()
+            watchdog.resetForTesting()
+        }
+        
+        let now = Date()
+        var terminatedPIDs: [pid_t] = []
+        
+        let frontmostApp = MockWatchdogApp(
+            pid: 2101,
+            bundleIdentifier: "com.test.frontmost",
+            localizedName: "FrontmostApp",
+            launchDate: now.addingTimeInterval(-3600), // 1 hr ago
+            activationPolicy: .regular
+        ) {
+            terminatedPIDs.append(2101)
+        }
+        
+        let userProtectedApp = MockWatchdogApp(
+            pid: 2102,
+            bundleIdentifier: "com.test.userprotected",
+            localizedName: "ProtectedApp",
+            launchDate: now.addingTimeInterval(-3600),
+            activationPolicy: .regular
+        ) {
+            terminatedPIDs.append(2102)
+        }
+        
+        let defaultSystemApp = MockWatchdogApp(
+            pid: 2103,
+            bundleIdentifier: "com.apple.finder",
+            localizedName: "Finder",
+            launchDate: now.addingTimeInterval(-3600),
+            activationPolicy: .regular
+        ) {
+            terminatedPIDs.append(2103)
+        }
+        
+        let regularIdleApp = MockWatchdogApp(
+            pid: 2104,
+            bundleIdentifier: "com.test.regular",
+            localizedName: "RegularApp",
+            launchDate: now.addingTimeInterval(-3600),
+            activationPolicy: .regular
+        ) {
+            terminatedPIDs.append(2104)
+        }
+        
+        watchdog.appsProvider = { [frontmostApp, userProtectedApp, defaultSystemApp, regularIdleApp] }
+        watchdog.frontmostPIDProvider = { 2101 } // 2101 is frontmost
+        watchdog.recordActivity(pid: 2101, date: now.addingTimeInterval(-3600))
+        watchdog.recordActivity(pid: 2102, date: now.addingTimeInterval(-3600))
+        watchdog.recordActivity(pid: 2103, date: now.addingTimeInterval(-3600))
+        watchdog.recordActivity(pid: 2104, date: now.addingTimeInterval(-3600))
+        
+        let terminatedNames = watchdog.checkInactiveApps(
+            thresholdSeconds: 900, // 15 mins
+            now: now,
+            protectedIDs: ["com.test.userprotected"]
+        )
+        
+        // Only regularIdleApp should be terminated; frontmost, userProtected, finder must survive
+        XCTAssertEqual(terminatedNames, ["RegularApp"])
+        XCTAssertEqual(terminatedPIDs, [2104])
+        // Frontmost app activity timestamp must have been refreshed to now
+        XCTAssertEqual(watchdog.lastActiveDate(for: 2101), now)
+    }
+    
+    func testInactivityWatchdogRespectsPolicyAndActivationPolicy() {
+        let watchdog = InactivityWatchdog.shared
+        defer {
+            watchdog.stop()
+            watchdog.resetForTesting()
+        }
+        
+        let now = Date()
+        var terminatedPIDs: [pid_t] = []
+        
+        let backgroundApp = MockWatchdogApp(
+            pid: 2201,
+            bundleIdentifier: "com.test.daemon",
+            localizedName: "Daemon",
+            launchDate: now.addingTimeInterval(-3600),
+            activationPolicy: .accessory // Non-regular
+        ) {
+            terminatedPIDs.append(2201)
+        }
+        
+        let musicApp = MockWatchdogApp(
+            pid: 2202,
+            bundleIdentifier: "com.spotify.client",
+            localizedName: "Spotify",
+            launchDate: now.addingTimeInterval(-3600),
+            activationPolicy: .regular
+        ) {
+            terminatedPIDs.append(2202)
+        }
+        
+        watchdog.appsProvider = { [backgroundApp, musicApp] }
+        watchdog.frontmostPIDProvider = { nil }
+        watchdog.shouldProtect = { bundleID in
+            bundleID == "com.spotify.client" // Smart protection policy
+        }
+        watchdog.recordActivity(pid: 2201, date: now.addingTimeInterval(-3600))
+        watchdog.recordActivity(pid: 2202, date: now.addingTimeInterval(-3600))
+        
+        let terminatedNames = watchdog.checkInactiveApps(
+            thresholdSeconds: 900,
+            now: now,
+            protectedIDs: []
+        )
+        
+        XCTAssertTrue(terminatedNames.isEmpty)
+        XCTAssertTrue(terminatedPIDs.isEmpty)
+    }
+    
+    // MARK: - Carbon HotKeys & HUD Keyboard Navigation Tests
+    
+    func testHotKeyManagerRegistrationAndTrigger() {
+        let manager = HotKeyManager.shared
+        defer { manager.unregisterAll() }
+        
+        manager.unregisterAll()
+        XCTAssertFalse(manager.isRegistered(action: .toggleHUD))
+        XCTAssertFalse(manager.isRegistered(action: .forceQuitAll))
+        XCTAssertFalse(manager.isRegistered(action: .quitOthers))
+        
+        var toggledHUDCount = 0
+        manager.register(
+            action: .toggleHUD,
+            keyCode: 12, // Q key
+            modifiers: HotKeyManager.modCmdOption
+        ) {
+            toggledHUDCount += 1
+        }
+        
+        XCTAssertTrue(manager.isRegistered(action: .toggleHUD))
+        let binding = manager.registeredBinding(action: .toggleHUD)
+        XCTAssertNotNil(binding)
+        XCTAssertEqual(binding?.keyCode, 12)
+        XCTAssertEqual(binding?.modifiers, HotKeyManager.modCmdOption)
+        
+        // Trigger action callback directly
+        manager.trigger(action: .toggleHUD)
+        XCTAssertEqual(toggledHUDCount, 1)
+        
+        // Register Force Quit All (⌥⇧⌘Q)
+        var forceQuitCount = 0
+        manager.register(
+            action: .forceQuitAll,
+            keyCode: 12,
+            modifiers: HotKeyManager.modCmdOptionShift
+        ) {
+            forceQuitCount += 1
+        }
+        XCTAssertTrue(manager.isRegistered(action: .forceQuitAll))
+        let forceBinding = manager.registeredBinding(action: .forceQuitAll)
+        XCTAssertEqual(forceBinding?.keyCode, 12)
+        XCTAssertEqual(forceBinding?.modifiers, HotKeyManager.modCmdOptionShift)
+        
+        manager.trigger(action: .forceQuitAll)
+        XCTAssertEqual(forceQuitCount, 1)
+        
+        // Register Quit Others (⌥⌘O)
+        manager.register(
+            action: .quitOthers,
+            keyCode: 31, // O key
+            modifiers: HotKeyManager.modCmdOption
+        ) {}
+        XCTAssertTrue(manager.isRegistered(action: .quitOthers))
+        
+        // Unregister single action
+        manager.unregister(action: .toggleHUD)
+        XCTAssertFalse(manager.isRegistered(action: .toggleHUD))
+        XCTAssertTrue(manager.isRegistered(action: .forceQuitAll))
+        
+        // Unregister all
+        manager.unregisterAll()
+        XCTAssertFalse(manager.isRegistered(action: .forceQuitAll))
+        XCTAssertFalse(manager.isRegistered(action: .quitOthers))
+    }
+    
+    func testHUDKeyboardNavigationArrowSelectionAndSpaceToggle() {
+        // Arrow navigation clamping
+        let count = 4
+        var index = 0
+        
+        // Down arrow navigates forward and clamps at count - 1
+        index = HUDNavigationState.handleArrowNavigation(currentIndex: index, totalCount: count, isUp: false)
+        XCTAssertEqual(index, 1)
+        index = HUDNavigationState.handleArrowNavigation(currentIndex: index, totalCount: count, isUp: false)
+        XCTAssertEqual(index, 2)
+        index = HUDNavigationState.handleArrowNavigation(currentIndex: index, totalCount: count, isUp: false)
+        XCTAssertEqual(index, 3)
+        index = HUDNavigationState.handleArrowNavigation(currentIndex: index, totalCount: count, isUp: false)
+        XCTAssertEqual(index, 3) // Clamped
+        
+        // Up arrow navigates backwards and clamps at 0
+        index = HUDNavigationState.handleArrowNavigation(currentIndex: index, totalCount: count, isUp: true)
+        XCTAssertEqual(index, 2)
+        index = HUDNavigationState.handleArrowNavigation(currentIndex: index, totalCount: count, isUp: true)
+        XCTAssertEqual(index, 1)
+        index = HUDNavigationState.handleArrowNavigation(currentIndex: index, totalCount: count, isUp: true)
+        XCTAssertEqual(index, 0)
+        index = HUDNavigationState.handleArrowNavigation(currentIndex: index, totalCount: count, isUp: true)
+        XCTAssertEqual(index, 0) // Clamped
+        
+        // Empty list handles gracefully
+        XCTAssertEqual(HUDNavigationState.handleArrowNavigation(currentIndex: 0, totalCount: 0, isUp: false), 0)
+        XCTAssertEqual(HUDNavigationState.handleArrowNavigation(currentIndex: 0, totalCount: 0, isUp: true), 0)
+        
+        // Space key toggles selection of highlighted item
+        let state = AppState.shared
+        let app1 = AppItem(id: 3001, name: "App1", bundleIdentifier: "com.test.app1", isProtected: false, isSelected: false)
+        let app2 = AppItem(id: 3002, name: "App2", bundleIdentifier: "com.test.app2", isProtected: false, isSelected: false)
+        state.apps = [app1, app2]
+        
+        // Highlighted item 0 (app1) toggles with space
+        state.toggleSelect(app: state.apps[0])
+        XCTAssertTrue(state.apps[0].isSelected)
+        XCTAssertFalse(state.apps[1].isSelected)
+        
+        // Toggle off
+        state.toggleSelect(app: state.apps[0])
+        XCTAssertFalse(state.apps[0].isSelected)
+    }
+    
+    func testHUDEscapeKeyDismissalPolicy() {
+        var dismissed = false
+        var clearedSearch = false
+        
+        let onDismiss = { dismissed = true }
+        let onClearSearch = { clearedSearch = true }
+        
+        // When search text is empty: pressing Esc triggers onDismiss
+        HUDNavigationState.handleEscapeKey(
+            hasSearchText: false,
+            clearSearch: onClearSearch,
+            dismiss: onDismiss
+        )
+        XCTAssertTrue(dismissed)
+        XCTAssertFalse(clearedSearch)
+        
+        // Reset
+        dismissed = false
+        clearedSearch = false
+        
+        // When search text is NOT empty: pressing Esc clears search and does NOT dismiss
+        HUDNavigationState.handleEscapeKey(
+            hasSearchText: true,
+            clearSearch: onClearSearch,
+            dismiss: onDismiss
+        )
+        XCTAssertFalse(dismissed)
+        XCTAssertTrue(clearedSearch)
+    }
+    
+    // MARK: - Audio Effects & Haptic Feedback Tests
+    
+    func testSoundServiceAudioAndHapticsDispatch() {
+        let soundService = SoundService.shared
+        defer {
+            soundService.soundPlayer = nil
+            soundService.hapticPerformer = nil
+        }
+        
+        var playedSounds: [String] = []
+        var performedHaptics: [NSHapticFeedbackManager.FeedbackPattern] = []
+        
+        soundService.soundPlayer = { sound in
+            playedSounds.append(sound)
+        }
+        soundService.hapticPerformer = { pattern in
+            performedHaptics.append(pattern)
+        }
+        
+        // 1. Both enabled: playQuitSingle triggers "quit-single" and .generic haptic
+        soundService.playQuitSingle(soundEnabled: true, hapticsEnabled: true)
+        XCTAssertEqual(playedSounds, ["quit-single"])
+        XCTAssertEqual(performedHaptics, [.generic])
+        
+        // 2. Sound disabled, haptics enabled
+        playedSounds.removeAll()
+        performedHaptics.removeAll()
+        soundService.playQuitSingle(soundEnabled: false, hapticsEnabled: true)
+        XCTAssertTrue(playedSounds.isEmpty)
+        XCTAssertEqual(performedHaptics, [.generic])
+        
+        // 3. Sound enabled, haptics disabled
+        playedSounds.removeAll()
+        performedHaptics.removeAll()
+        soundService.playQuitSingle(soundEnabled: true, hapticsEnabled: false)
+        XCTAssertEqual(playedSounds, ["quit-single"])
+        XCTAssertTrue(performedHaptics.isEmpty)
+        
+        // 4. PlayQuitAll triggers "quit-all" and .levelChange
+        playedSounds.removeAll()
+        performedHaptics.removeAll()
+        soundService.playQuitAll(soundEnabled: true, hapticsEnabled: true)
+        XCTAssertEqual(playedSounds, ["quit-all"])
+        XCTAssertEqual(performedHaptics, [.levelChange])
+        
+        // 5. PlayRelaunch triggers "relaunch" and .alignment
+        playedSounds.removeAll()
+        performedHaptics.removeAll()
+        soundService.playRelaunch(soundEnabled: true, hapticsEnabled: true)
+        XCTAssertEqual(playedSounds, ["relaunch"])
+        XCTAssertEqual(performedHaptics, [.alignment])
+    }
+    
+    func testAppStateTerminationInvokesSoundAndHaptics() {
+        let state = AppState.shared
+        let soundService = SoundService.shared
+        let originalSound = state.soundEnabled
+        let originalHaptics = state.hapticsEnabled
+        defer {
+            soundService.soundPlayer = nil
+            soundService.hapticPerformer = nil
+            AppManager.shared.terminationHandler = nil
+            state.soundEnabled = originalSound
+            state.hapticsEnabled = originalHaptics
+        }
+        
+        state.soundEnabled = true
+        state.hapticsEnabled = true
+        AppManager.shared.terminationHandler = { _, _ in true }
+        
+        var playedSounds: [String] = []
+        var performedHaptics: [NSHapticFeedbackManager.FeedbackPattern] = []
+        soundService.soundPlayer = { playedSounds.append($0) }
+        soundService.hapticPerformer = { performedHaptics.append($0) }
+        
+        let app = AppItem(id: 4001, name: "QuitTarget", isProtected: false)
+        state.apps = [app]
+        
+        // Single Quit triggers single sound & generic haptic
+        state.quit(app: app)
+        XCTAssertEqual(playedSounds, ["quit-single"])
+        XCTAssertEqual(performedHaptics, [.generic])
+        
+        // Quit All triggers quit-all sound & levelChange haptic
+        playedSounds.removeAll()
+        performedHaptics.removeAll()
+        state.apps = [app]
+        state.quitAll(force: false)
+        XCTAssertEqual(playedSounds, ["quit-all"])
+        XCTAssertEqual(performedHaptics, [.levelChange])
+    }
+    
+    // MARK: - Launch at Login & Settings Persistence Tests
+    
+    func testLaunchAtLoginStatusAndRegistration() {
+        let launcher = LaunchAtLogin.shared
+        defer {
+            launcher.statusProvider = nil
+            launcher.registerHandler = nil
+            launcher.unregisterHandler = nil
+        }
+        
+        var simulatedStatus: LaunchAtLoginStatus = .notRegistered
+        launcher.statusProvider = { simulatedStatus }
+        
+        var registerCalled = false
+        launcher.registerHandler = {
+            registerCalled = true
+            simulatedStatus = .enabled
+        }
+        
+        var unregisterCalled = false
+        launcher.unregisterHandler = {
+            unregisterCalled = true
+            simulatedStatus = .notRegistered
+        }
+        
+        // 1. Initial status not registered -> isEnabled is false
+        XCTAssertFalse(launcher.isEnabled)
+        
+        // 2. setEnabled(true) registers and updates status
+        let enableResult = launcher.setEnabled(true)
+        XCTAssertTrue(enableResult)
+        XCTAssertTrue(registerCalled)
+        XCTAssertTrue(launcher.isEnabled)
+        
+        // 3. setEnabled(true) again when already enabled does not re-register
+        registerCalled = false
+        let enableAgainResult = launcher.setEnabled(true)
+        XCTAssertTrue(enableAgainResult)
+        XCTAssertFalse(registerCalled)
+        
+        // 4. setEnabled(false) unregisters
+        let disableResult = launcher.setEnabled(false)
+        XCTAssertTrue(disableResult)
+        XCTAssertTrue(unregisterCalled)
+        XCTAssertFalse(launcher.isEnabled)
+        
+        // 5. Handling registration errors gracefully
+        struct TestRegistrationError: Error {}
+        launcher.registerHandler = {
+            throw TestRegistrationError()
+        }
+        let failResult = launcher.setEnabled(true)
+        XCTAssertFalse(failResult)
+    }
+    
+    func testSettingsPersistenceAcrossReload() {
+        let state = AppState.shared
+        let defaults = UserDefaults.standard
+        
+        // Save original settings
+        let origSound = state.soundEnabled
+        let origHaptics = state.hapticsEnabled
+        let origAutoQuit = state.autoQuitInactiveEnabled
+        let origAutoMinutes = state.autoQuitInactiveMinutes
+        let origShowBg = state.showBackgroundApps
+        let origShowCount = state.showAppCountInMenuBar
+        let origGroupBg = state.groupBackgroundApps
+        let origSkipMusic = state.skipMusicApps
+        
+        defer {
+            state.soundEnabled = origSound
+            state.hapticsEnabled = origHaptics
+            state.autoQuitInactiveEnabled = origAutoQuit
+            state.autoQuitInactiveMinutes = origAutoMinutes
+            state.showBackgroundApps = origShowBg
+            state.showAppCountInMenuBar = origShowCount
+            state.groupBackgroundApps = origGroupBg
+            state.skipMusicApps = origSkipMusic
+            state.updateInactivityWatchdog()
+        }
+        
+        // 1. Mutate settings
+        state.soundEnabled = false
+        state.hapticsEnabled = false
+        state.autoQuitInactiveMinutes = 30
+        state.showBackgroundApps = true
+        state.showAppCountInMenuBar = false
+        state.groupBackgroundApps = false
+        state.skipMusicApps = false
+        state.autoQuitInactiveEnabled = true
+        state.updateInactivityWatchdog()
+        
+        // 2. Verify UserDefaults persistence
+        XCTAssertEqual(defaults.bool(forKey: "soundEnabled"), false)
+        XCTAssertEqual(defaults.bool(forKey: "hapticsEnabled"), false)
+        XCTAssertEqual(defaults.integer(forKey: "autoQuitInactiveMinutes"), 30)
+        XCTAssertEqual(defaults.bool(forKey: "showBackgroundApps"), true)
+        XCTAssertEqual(defaults.bool(forKey: "showAppCountInMenuBar"), false)
+        XCTAssertEqual(defaults.bool(forKey: "groupBackgroundApps"), false)
+        XCTAssertEqual(defaults.bool(forKey: "skipMusicApps"), false)
+        XCTAssertEqual(defaults.bool(forKey: "autoQuitInactiveEnabled"), true)
+        
+        // 3. Verify Watchdog started
+        XCTAssertTrue(InactivityWatchdog.shared.isRunning)
+        
+        // 4. Disable auto-quit and verify Watchdog stopped
+        state.autoQuitInactiveEnabled = false
+        state.updateInactivityWatchdog()
+        XCTAssertFalse(InactivityWatchdog.shared.isRunning)
+        XCTAssertEqual(defaults.bool(forKey: "autoQuitInactiveEnabled"), false)
+    }
 }
+
+
+
+
 
 
 

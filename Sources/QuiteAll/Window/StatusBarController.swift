@@ -42,6 +42,9 @@ public final class StatusBarController: NSObject, NSPopoverDelegate {
             },
             onQuitApp: {
                 NSApp.terminate(nil)
+            },
+            onDismiss: { [weak self] in
+                self?.hideHUD()
             }
         )
         

@@ -7,10 +7,10 @@ Automated power management and global keyboard control. An Inactivity Watchdog s
 
 **Status:** ready-for-agent
 
-- [ ] Inactivity Watchdog monitors background processes and terminates idle apps exceeding the configured threshold.
-- [ ] Global Carbon hotkey `⌥⌘Q` toggles the popover HUD from any application window.
-- [ ] Keyboard navigation within the HUD supports `↑`/`↓` row selection, `Space` toggle, and `Esc` dismiss.
-- [ ] Audio effects (`quit-single.aiff`, `quit-all.aiff`) and trackpad haptic feedback trigger on successful actions.
-- [ ] Preferences window supports General, Protected Apps, Auto-Quit, Shortcuts, and About settings tabs.
-- [ ] Modern macOS `SMAppService` handles launch at login without helper processes.
-- [ ] Automated tests verify watchdog timer mechanics, settings persistence, and policy constraints.
+- [x] Inactivity Watchdog monitors background processes and terminates idle apps exceeding the configured threshold.
+- [x] Global Carbon hotkey `⌥⌘Q` toggles the popover HUD from any application window.
+- [x] Keyboard navigation within the HUD supports `↑`/`↓` row selection, `Space` toggle, and `Esc` dismiss.
+- [x] Audio effects (`quit-single.aiff`, `quit-all.aiff`) and trackpad haptic feedback trigger on successful actions.
+- [x] Preferences window supports General, Protected Apps, Auto-Quit, Shortcuts, and About settings tabs.
+- [x] Modern macOS `SMAppService` handles launch at login without helper processes.
+- [x] Automated tests verify watchdog timer mechanics, settings persistence, and policy constraints.

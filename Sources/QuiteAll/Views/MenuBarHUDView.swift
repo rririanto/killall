@@ -1,5 +1,28 @@
 import SwiftUI
 
+public struct HUDNavigationState {
+    public static func handleArrowNavigation(currentIndex: Int, totalCount: Int, isUp: Bool) -> Int {
+        guard totalCount > 0 else { return 0 }
+        if isUp {
+            return max(0, currentIndex - 1)
+        } else {
+            return min(totalCount - 1, currentIndex + 1)
+        }
+    }
+    
+    public static func handleEscapeKey(
+        hasSearchText: Bool,
+        clearSearch: () -> Void,
+        dismiss: () -> Void
+    ) {
+        if hasSearchText {
+            clearSearch()
+        } else {
+            dismiss()
+        }
+    }
+}
+
 public struct MenuBarHUDView: View {
     @ObservedObject var state: AppState
     @FocusState private var isSearchFocused: Bool
@@ -7,15 +30,18 @@ public struct MenuBarHUDView: View {
     @State private var keyMonitor: Any? = nil
     var onOpenSettings: () -> Void
     var onQuitApp: () -> Void
+    var onDismiss: () -> Void
     
     public init(
         state: AppState,
         onOpenSettings: @escaping () -> Void,
-        onQuitApp: @escaping () -> Void
+        onQuitApp: @escaping () -> Void,
+        onDismiss: (() -> Void)? = nil
     ) {
         self.state = state
         self.onOpenSettings = onOpenSettings
         self.onQuitApp = onQuitApp
+        self.onDismiss = onDismiss ?? {}
     }
     
     public var body: some View {
@@ -225,13 +251,21 @@ public struct MenuBarHUDView: View {
         switch event.keyCode {
         case 126: // Up Arrow
             if !items.isEmpty {
-                highlightedIndex = max(0, highlightedIndex - 1)
+                highlightedIndex = HUDNavigationState.handleArrowNavigation(
+                    currentIndex: highlightedIndex,
+                    totalCount: items.count,
+                    isUp: true
+                )
             }
             return nil
             
         case 125: // Down Arrow
             if !items.isEmpty {
-                highlightedIndex = min(items.count - 1, highlightedIndex + 1)
+                highlightedIndex = HUDNavigationState.handleArrowNavigation(
+                    currentIndex: highlightedIndex,
+                    totalCount: items.count,
+                    isUp: false
+                )
             }
             return nil
             
@@ -270,11 +304,16 @@ public struct MenuBarHUDView: View {
             return event
             
         case 53: // Escape
-            if isSearchFocused && !state.searchText.isEmpty {
-                state.searchText = ""
-                return nil
-            }
-            return event
+            HUDNavigationState.handleEscapeKey(
+                hasSearchText: isSearchFocused && !state.searchText.isEmpty,
+                clearSearch: {
+                    state.searchText = ""
+                },
+                dismiss: {
+                    onDismiss()
+                }
+            )
+            return nil
             
         default:
             return event

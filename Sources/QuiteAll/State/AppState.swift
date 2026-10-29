@@ -425,13 +425,22 @@ public final class AppState: ObservableObject {
     
     public func saveProtectedIDs() {
         UserDefaults.standard.set(Array(protectedBundleIDs), forKey: "protectedBundleIDs")
+        InactivityWatchdog.shared.updateProtectedIDs(protectedBundleIDs)
     }
     
     public func updateInactivityWatchdog() {
         if autoQuitInactiveEnabled {
             InactivityWatchdog.shared.start(
                 intervalMinutes: autoQuitInactiveMinutes,
-                protectedIDs: protectedBundleIDs
+                protectedIDs: protectedBundleIDs,
+                shouldProtect: { [weak self] bundleID in
+                    guard let self = self else { return false }
+                    return AppManager.shared.shouldProtect(
+                        bundleID: bundleID,
+                        userProtectedIDs: self.protectedBundleIDs,
+                        skipMusicApps: self.skipMusicApps
+                    )
+                }
             ) { [weak self] appName in
                 self?.showReclaimMessage(bytes: 0, prefix: "Auto-closed inactive \(appName)")
                 self?.refreshApps()

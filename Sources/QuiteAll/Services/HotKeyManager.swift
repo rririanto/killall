@@ -14,6 +14,7 @@ public final class HotKeyManager {
     
     private var hotKeyRefs: [Action: EventHotKeyRef] = [:]
     private var actionHandlers: [Action: () -> Void] = [:]
+    private var registeredBindings: [Action: (keyCode: UInt32, modifiers: UInt32)] = [:]
     private var eventHandlerInstalled = false
     private var eventHandlerRef: EventHandlerRef?
     
@@ -22,11 +23,24 @@ public final class HotKeyManager {
     
     private init() {}
     
+    public func isRegistered(action: Action) -> Bool {
+        actionHandlers[action] != nil
+    }
+    
+    public func registeredBinding(action: Action) -> (keyCode: UInt32, modifiers: UInt32)? {
+        registeredBindings[action]
+    }
+    
+    public func trigger(action: Action) {
+        actionHandlers[action]?()
+    }
+    
     public func register(action: Action, keyCode: UInt32, modifiers: UInt32, handler: @escaping () -> Void) {
         installHandlerIfNeeded()
         unregister(action: action)
         
         actionHandlers[action] = handler
+        registeredBindings[action] = (keyCode, modifiers)
         
         let hotKeyID = EventHotKeyID(signature: OSType(0x51414C4C), id: action.rawValue) // 'QALL'
         var hotKeyRef: EventHotKeyRef?
@@ -51,10 +65,12 @@ public final class HotKeyManager {
             UnregisterEventHotKey(ref)
         }
         actionHandlers.removeValue(forKey: action)
+        registeredBindings.removeValue(forKey: action)
     }
     
     public func unregisterAll() {
-        for action in hotKeyRefs.keys {
+        let allActions = Array(actionHandlers.keys)
+        for action in allActions {
             unregister(action: action)
         }
     }
