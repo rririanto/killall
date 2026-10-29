@@ -45,14 +45,7 @@ public struct MenuBarHUDView: View {
     // MARK: - 1. Top Action Button
     private var topActionButton: some View {
         let hasSelection = state.selectedCount > 0
-        let isAll = state.selectedCount == state.quitableCount || state.selectedCount == 0
-        let title: String = {
-            if state.isOptionKeyPressed {
-                return hasSelection && !isAll ? "Force Quit Selected (\(state.selectedCount))" : "Force Quit All"
-            } else {
-                return hasSelection && !isAll ? "Quit Selected (\(state.selectedCount))" : "Quit All"
-            }
-        }()
+        let isAll = state.selectedCount == state.quitableCount && state.quitableCount > 0
         
         return Button {
             if hasSelection && !isAll {
@@ -66,25 +59,26 @@ public struct MenuBarHUDView: View {
                     Image(systemName: "bolt.fill")
                         .font(.system(size: 13, weight: .bold))
                 }
-                Text(title)
+                Text(state.actionButtonTitle)
                     .font(.system(size: 14.5, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
             .frame(height: 34)
             .background(
-                state.isOptionKeyPressed
-                ? Color.red
-                : Color(red: 0.05, green: 0.52, blue: 1.0)
+                state.isActionButtonDisabled
+                ? Color.secondary.opacity(0.2)
+                : (state.isOptionKeyPressed ? Color.red : Color(red: 0.05, green: 0.52, blue: 1.0))
             )
-            .foregroundColor(.white)
+            .foregroundColor(state.isActionButtonDisabled ? .secondary.opacity(0.6) : .white)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
-        .disabled(state.quitableCount == 0)
+        .disabled(state.isActionButtonDisabled)
         .padding(.horizontal, 10)
         .padding(.top, 10)
         .padding(.bottom, 6)
     }
+
     
     // MARK: - 2. Select All + Search Bar
     private var searchAndSelectRow: some View {

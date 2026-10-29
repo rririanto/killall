@@ -7,9 +7,10 @@ A robust, high-performance process termination engine. Users can click "Quit All
 
 **Status:** ready-for-agent
 
-- [ ] Top action button dynamically reflects current selection state ("Quit All" vs "Quit Selected (N)").
-- [ ] Holding the `Option` key dynamically updates button styling (red accent) and label to "Force Quit".
-- [ ] Standard quitting executes graceful termination (`terminate()`) while force-quitting dispatches direct `SIGKILL`.
-- [ ] "Quit Others" accurately preserves the frontmost application while terminating other non-protected apps.
-- [ ] "Relaunch App" closes the selected application and re-opens it via system workspace APIs.
-- [ ] Automated tests verify termination action dispatch, selection isolation, and state updates.
+- [x] Top action button dynamically reflects current selection state ("Quit All" vs "Quit Selected (N)").
+- [x] Holding the `Option` key dynamically updates button styling (red accent) and label to "Force Quit".
+- [x] Standard quitting executes graceful termination (`terminate()`) while force-quitting dispatches direct `SIGKILL`.
+- [x] "Quit Others" accurately preserves the frontmost application while terminating other non-protected apps.
+- [x] "Relaunch App" closes the selected application and re-opens it via system workspace APIs.
+- [x] Automated tests verify termination action dispatch, selection isolation, and state updates.
+

@@ -178,5 +178,200 @@ final class QuiteAllTests: XCTestCase {
         XCTAssertEqual(smallItem.formattedCPU, "0.2%")
         XCTAssertEqual(smallItem.formattedMemory, "50 MB")
     }
+    
+    func testActionButtonTitleDynamicSelectionAndOptionModifier() {
+        let state = AppState.shared
+        let app1 = AppItem(id: 601, name: "AppOne", bundleIdentifier: "com.test.app1", isProtected: false, isSelected: true)
+        let app2 = AppItem(id: 602, name: "AppTwo", bundleIdentifier: "com.test.app2", isProtected: false, isSelected: true)
+        let protectedApp = AppItem(id: 603, name: "ProtApp", bundleIdentifier: "com.test.prot", isProtected: true, isSelected: false)
+        
+        state.apps = [app1, app2, protectedApp]
+        state.isOptionKeyPressed = false
+        
+        // Both quitable apps are selected -> "Quit All"
+        XCTAssertEqual(state.selectedCount, 2)
+        XCTAssertEqual(state.quitableCount, 2)
+        XCTAssertEqual(state.actionButtonTitle, "Quit All")
+        XCTAssertFalse(state.isActionButtonDisabled)
+        
+        // Hold Option key -> "Force Quit All"
+        state.isOptionKeyPressed = true
+        XCTAssertEqual(state.actionButtonTitle, "Force Quit All")
+        
+        // Select only 1 app without Option -> "Quit Selected (1)"
+        state.isOptionKeyPressed = false
+        state.apps[0].isSelected = true
+        state.apps[1].isSelected = false
+        XCTAssertEqual(state.selectedCount, 1)
+        XCTAssertEqual(state.actionButtonTitle, "Quit Selected (1)")
+        XCTAssertFalse(state.isActionButtonDisabled)
+        
+        // Select only 1 app with Option -> "Force Quit Selected (1)"
+        state.isOptionKeyPressed = true
+        XCTAssertEqual(state.actionButtonTitle, "Force Quit Selected (1)")
+        
+        // 0 apps selected -> button is disabled
+        state.isOptionKeyPressed = false
+        state.apps[0].isSelected = false
+        XCTAssertEqual(state.selectedCount, 0)
+        XCTAssertTrue(state.isActionButtonDisabled)
+    }
+    
+    func testQuitBatchDispatchesGracefulVsForceTermination() {
+        let manager = AppManager.shared
+        defer { manager.terminationHandler = nil }
+        
+        var terminatedCalls: [(id: pid_t, force: Bool)] = []
+        manager.terminationHandler = { app, force in
+            terminatedCalls.append((id: app.id, force: force))
+            return true
+        }
+        
+        let app1 = AppItem(id: 701, name: "NormalApp", memoryBytes: 500 * 1024 * 1024, isProtected: false)
+        let app2 = AppItem(id: 702, name: "ProtectedApp", memoryBytes: 200 * 1024 * 1024, isProtected: true)
+        let app3 = AppItem(id: 703, name: "AnotherApp", memoryBytes: 300 * 1024 * 1024, isProtected: false)
+        
+        // 1. Graceful Batch Quit
+        let reclaimedGraceful = manager.quitBatch(apps: [app1, app2, app3], force: false)
+        XCTAssertEqual(reclaimedGraceful, (500 + 300) * 1024 * 1024)
+        XCTAssertEqual(terminatedCalls.count, 2)
+        XCTAssertEqual(terminatedCalls[0].id, 701)
+        XCTAssertFalse(terminatedCalls[0].force)
+        XCTAssertEqual(terminatedCalls[1].id, 703)
+        XCTAssertFalse(terminatedCalls[1].force)
+        
+        // 2. Force Batch Quit (SIGKILL dispatch)
+        terminatedCalls.removeAll()
+        let reclaimedForce = manager.quitBatch(apps: [app1, app2, app3], force: true)
+        XCTAssertEqual(reclaimedForce, (500 + 300) * 1024 * 1024)
+        XCTAssertEqual(terminatedCalls.count, 2)
+        XCTAssertEqual(terminatedCalls[0].id, 701)
+        XCTAssertTrue(terminatedCalls[0].force)
+        XCTAssertEqual(terminatedCalls[1].id, 703)
+        XCTAssertTrue(terminatedCalls[1].force)
+    }
+    
+    func testQuitOthersPreservesFrontmostAppAndProtectedApps() {
+        let manager = AppManager.shared
+        defer { manager.terminationHandler = nil }
+        
+        var terminatedIDs: [pid_t] = []
+        manager.terminationHandler = { app, _ in
+            terminatedIDs.append(app.id)
+            return true
+        }
+        
+        let frontmostApp = AppItem(id: 801, name: "Xcode", isActive: true, memoryBytes: 800 * 1024 * 1024, isProtected: false)
+        let protectedApp = AppItem(id: 802, name: "Finder", isActive: false, memoryBytes: 150 * 1024 * 1024, isProtected: true)
+        let quitableApp1 = AppItem(id: 803, name: "Slack", isActive: false, memoryBytes: 400 * 1024 * 1024, isProtected: false)
+        let quitableApp2 = AppItem(id: 804, name: "Chrome", isActive: false, memoryBytes: 600 * 1024 * 1024, isProtected: false)
+        
+        let allApps = [frontmostApp, protectedApp, quitableApp1, quitableApp2]
+        
+        // 1. Explicit preservingPID preserves that app and skips protected apps
+        let reclaimed = manager.quitOthers(allApps: allApps, force: false, preservingPID: 801)
+        XCTAssertEqual(reclaimed, (400 + 600) * 1024 * 1024)
+        XCTAssertEqual(terminatedIDs.count, 2)
+        XCTAssertTrue(terminatedIDs.contains(803))
+        XCTAssertTrue(terminatedIDs.contains(804))
+        XCTAssertFalse(terminatedIDs.contains(801)) // Frontmost preserved!
+        XCTAssertFalse(terminatedIDs.contains(802)) // Protected preserved!
+        
+        // 2. Without preservingPID, falls back to active app
+        terminatedIDs.removeAll()
+        let reclaimedFallback = manager.quitOthers(allApps: allApps, force: false, preservingPID: nil)
+        XCTAssertEqual(reclaimedFallback, (400 + 600) * 1024 * 1024)
+        XCTAssertEqual(terminatedIDs.count, 2)
+        XCTAssertFalse(terminatedIDs.contains(801))
+        XCTAssertFalse(terminatedIDs.contains(802))
+    }
+    
+    func testRestartApplicationTerminatesAndRelaunches() {
+        let manager = AppManager.shared
+        defer {
+            manager.terminationHandler = nil
+            manager.appLauncher = nil
+        }
+        
+        var terminatedPID: pid_t?
+        manager.terminationHandler = { app, _ in
+            terminatedPID = app.id
+            return true
+        }
+        
+        var relaunchedURL: URL?
+        let expectation = expectation(description: "Relaunch completes")
+        manager.appLauncher = { url, completion in
+            relaunchedURL = url
+            completion(true)
+        }
+        
+        let testURL = URL(fileURLWithPath: "/Applications/Calculator.app")
+        let app = AppItem(
+            id: 9999,
+            name: "Calculator",
+            bundleIdentifier: "com.apple.calculator",
+            url: testURL
+        )
+        
+        manager.restart(app: app) {
+            expectation.fulfill()
+        }
+        
+        wait(for: [expectation], timeout: 2.0)
+        XCTAssertEqual(terminatedPID, 9999)
+        XCTAssertEqual(relaunchedURL, testURL)
+    }
+    
+    func testAppStateTerminationActionDispatchAndSelectionIsolation() {
+        let state = AppState.shared
+        let originalSound = state.soundEnabled
+        let originalHaptics = state.hapticsEnabled
+        state.soundEnabled = false
+        state.hapticsEnabled = false
+        let manager = AppManager.shared
+        defer {
+            manager.terminationHandler = nil
+            state.soundEnabled = originalSound
+            state.hapticsEnabled = originalHaptics
+        }
+        
+        var terminatedCalls: [(id: pid_t, force: Bool)] = []
+        manager.terminationHandler = { app, force in
+            terminatedCalls.append((id: app.id, force: force))
+            return true
+        }
+        
+        let app1 = AppItem(id: 1001, name: "SelectedUnprotected", memoryBytes: 400 * 1024 * 1024, isProtected: false, isSelected: true)
+        let app2 = AppItem(id: 1002, name: "UnselectedUnprotected", memoryBytes: 300 * 1024 * 1024, isProtected: false, isSelected: false)
+        let app3 = AppItem(id: 1003, name: "SelectedProtected", memoryBytes: 200 * 1024 * 1024, isProtected: true, isSelected: true)
+        
+        state.apps = [app1, app2, app3]
+        
+        // 1. quitSelected(force: false) -> only app1 terminated, app2 & app3 untouched
+        state.quitSelected(force: false)
+        XCTAssertEqual(terminatedCalls.count, 1)
+        XCTAssertEqual(terminatedCalls.first?.id, 1001)
+        XCTAssertFalse(terminatedCalls.first?.force ?? true)
+        XCTAssertTrue(state.apps.first(where: { $0.id == 1001 })?.isTerminating == true)
+        XCTAssertFalse(state.apps.first(where: { $0.id == 1002 })?.isTerminating == true)
+        XCTAssertFalse(state.apps.first(where: { $0.id == 1003 })?.isTerminating == true)
+        XCTAssertTrue(state.reclaimedMemoryMessage?.contains("400 MB") == true)
+        
+        // 2. quitAll(force: true) -> app1 and app2 terminated with force, app3 protected
+        terminatedCalls.removeAll()
+        state.apps = [app1, app2, app3]
+        state.quitAll(force: true)
+        XCTAssertEqual(terminatedCalls.count, 2)
+        XCTAssertTrue(terminatedCalls.contains(where: { $0.id == 1001 && $0.force == true }))
+        XCTAssertTrue(terminatedCalls.contains(where: { $0.id == 1002 && $0.force == true }))
+        XCTAssertFalse(terminatedCalls.contains(where: { $0.id == 1003 }))
+        XCTAssertTrue(state.reclaimedMemoryMessage?.contains("700 MB") == true)
+    }
 }
+
+
+
+
+
 

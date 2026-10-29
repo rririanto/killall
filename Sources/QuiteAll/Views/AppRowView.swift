@@ -60,7 +60,7 @@ public struct AppRowView: View {
                     state.restart(app: app)
                 }
                 Button("Quit Others") {
-                    state.quitOthers(force: state.isOptionKeyPressed)
+                    state.quitOthers(preservingPID: app.id, force: state.isOptionKeyPressed)
                 }
                 Divider()
                 Button(app.isHidden ? "Unhide" : "Hide") {

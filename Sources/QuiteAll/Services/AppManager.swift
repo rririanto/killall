@@ -1,8 +1,15 @@
 import AppKit
+import Darwin
 import Foundation
 
 public final class AppManager {
     public static let shared = AppManager()
+    
+    /// Injectable termination handler for testing and isolation
+    public var terminationHandler: ((_ app: AppItem, _ force: Bool) -> Bool)?
+    
+    /// Injectable application launcher for testing relaunch functionality
+    public var appLauncher: ((_ url: URL, _ completion: @escaping (Bool) -> Void) -> Void)?
     
     // Default system protected apps (cannot be terminated or protected by default)
     public static let defaultProtectedBundleIDs: Set<String> = [
@@ -85,6 +92,10 @@ public final class AppManager {
             return true
         }
         
+        if let customHandler = terminationHandler {
+            return customHandler(app, false)
+        }
+        
         guard let runningApp = NSRunningApplication(processIdentifier: app.id) else {
             return false
         }
@@ -94,7 +105,7 @@ public final class AppManager {
         return success
     }
     
-    /// Force quits a single application immediately
+    /// Force quits a single application immediately via SIGKILL
     @discardableResult
     public func forceQuit(app: AppItem) -> Bool {
         if app.bundleIdentifier == "com.apple.finder" {
@@ -102,22 +113,42 @@ public final class AppManager {
             return true
         }
         
-        guard let runningApp = NSRunningApplication(processIdentifier: app.id) else {
-            return false
+        if let customHandler = terminationHandler {
+            return customHandler(app, true)
         }
         
-        let success = runningApp.forceTerminate()
+        if let runningApp = NSRunningApplication(processIdentifier: app.id) {
+            _ = runningApp.forceTerminate()
+        }
+        
+        // Dispatch direct POSIX SIGKILL to immediately terminate unresponsive tasks
+        let killResult = Darwin.kill(app.id, SIGKILL)
         ProcessMonitor.shared.remove(pid: app.id)
-        return success
+        return killResult == 0
     }
+
     
     /// Restarts / relaunches an application
     public func restart(app: AppItem, completion: (() -> Void)? = nil) {
-        guard let bundleURL = app.url else { return }
+        let bundleURL = app.url ?? (app.bundleIdentifier.flatMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) })
+        guard let targetURL = bundleURL else {
+            completion?()
+            return
+        }
         let pid = app.id
         
         // Terminate first
         quit(app: app)
+        
+        // If an injectable app launcher is configured (e.g. for testing), invoke it directly
+        if let customLauncher = appLauncher {
+            customLauncher(targetURL) { _ in
+                DispatchQueue.main.async {
+                    completion?()
+                }
+            }
+            return
+        }
         
         // Wait asynchronously until the process exits, then relaunch
         DispatchQueue.global(qos: .userInitiated).async {
@@ -130,16 +161,17 @@ public final class AppManager {
                 attempts += 1
             }
             
-            // Relaunch app
+            // Relaunch app via system workspace APIs
             let configuration = NSWorkspace.OpenConfiguration()
             configuration.activates = true
-            NSWorkspace.shared.openApplication(at: bundleURL, configuration: configuration) { _, _ in
+            NSWorkspace.shared.openApplication(at: targetURL, configuration: configuration) { _, _ in
                 DispatchQueue.main.async {
                     completion?()
                 }
             }
         }
     }
+
     
     /// Quits an array of applications (optionally force-quits)
     /// Returns the total resident memory reclaimed in bytes
@@ -157,10 +189,28 @@ public final class AppManager {
         return reclaimedBytes
     }
     
-    /// Quits all applications except the currently frontmost active application
-    public func quitOthers(allApps: [AppItem], force: Bool) -> UInt64 {
-        let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
-        let appsToQuit = allApps.filter { $0.id != frontmostPID && !$0.isProtected }
+    /// Quits all applications except the frontmost/preserved application and protected apps
+    public func quitOthers(allApps: [AppItem], force: Bool = false, preservingPID: pid_t? = nil) -> UInt64 {
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+        
+        let targetPreservedPID: pid_t? = {
+            if let preservingPID = preservingPID {
+                return preservingPID
+            }
+            if let frontmost = NSWorkspace.shared.frontmostApplication,
+               frontmost.processIdentifier != currentPID,
+               allApps.contains(where: { $0.id == frontmost.processIdentifier }) {
+                return frontmost.processIdentifier
+            }
+            return allApps.first(where: { $0.isActive })?.id
+        }()
+        
+        let appsToQuit = allApps.filter { app in
+            if let targetPreservedPID = targetPreservedPID, app.id == targetPreservedPID {
+                return false
+            }
+            return !app.isProtected
+        }
         return quitBatch(apps: appsToQuit, force: force)
     }
     

@@ -131,6 +131,19 @@ public final class AppState: ObservableObject {
         apps.filter { !$0.isProtected }.count
     }
     
+    public var isActionButtonDisabled: Bool {
+        selectedCount == 0 || quitableCount == 0
+    }
+    
+    public var actionButtonTitle: String {
+        let isAll = selectedCount == quitableCount && quitableCount > 0
+        if isOptionKeyPressed {
+            return (selectedCount > 0 && !isAll) ? "Force Quit Selected (\(selectedCount))" : "Force Quit All"
+        } else {
+            return (selectedCount > 0 && !isAll) ? "Quit Selected (\(selectedCount))" : "Quit All"
+        }
+    }
+    
     public var totalRAMFormatted: String {
         let gb = Double(totalRAMBytes) / (1024.0 * 1024.0 * 1024.0)
         let mb = Double(totalRAMBytes) / (1024.0 * 1024.0)
@@ -260,9 +273,9 @@ public final class AppState: ObservableObject {
         showReclaimMessage(bytes: reclaimed)
     }
     
-    public func quitOthers(force: Bool = false) {
+    public func quitOthers(preservingPID: pid_t? = nil, force: Bool = false) {
         SoundService.shared.playQuitAll(soundEnabled: soundEnabled, hapticsEnabled: hapticsEnabled)
-        let reclaimed = AppManager.shared.quitOthers(allApps: apps, force: force)
+        let reclaimed = AppManager.shared.quitOthers(allApps: apps, force: force, preservingPID: preservingPID)
         showReclaimMessage(bytes: reclaimed)
         refreshApps()
     }
