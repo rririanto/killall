@@ -185,6 +185,11 @@ public final class AppState: ObservableObject {
     
     public func toggleSelect(app: AppItem) {
         if let idx = apps.firstIndex(where: { $0.id == app.id }) {
+            // Protected apps are strictly excluded from selection
+            guard !apps[idx].isProtected else {
+                apps[idx].isSelected = false
+                return
+            }
             apps[idx].isSelected.toggle()
         }
     }
@@ -201,14 +206,29 @@ public final class AppState: ObservableObject {
         let targetIDs = Set(targetApps.map { $0.id })
         
         for idx in apps.indices {
-            if targetIDs.contains(apps[idx].id) && !apps[idx].isProtected {
+            if apps[idx].isProtected {
+                apps[idx].isSelected = false
+            } else if targetIDs.contains(apps[idx].id) {
                 apps[idx].isSelected = !allSelected
             }
         }
     }
+
     
     public func toggleProtection(app: AppItem) {
         guard let bundleID = app.bundleIdentifier else { return }
+        
+        // Essential system services (Finder, Dock, Control Center) are permanently shielded
+        if AppManager.isPermanentlyProtected(bundleID: bundleID) {
+            protectedBundleIDs.insert(bundleID)
+            if let idx = apps.firstIndex(where: { $0.id == app.id }) {
+                apps[idx].isProtected = true
+                apps[idx].isSelected = false
+            }
+            saveProtectedIDs()
+            return
+        }
+        
         if protectedBundleIDs.contains(bundleID) {
             protectedBundleIDs.remove(bundleID)
         } else {
@@ -224,6 +244,23 @@ public final class AppState: ObservableObject {
             }
         }
     }
+    
+    public func addProtectedBundleID(_ bundleID: String) {
+        let trimmed = bundleID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        protectedBundleIDs.insert(trimmed)
+        saveProtectedIDs()
+        refreshApps()
+    }
+    
+    public func removeProtectedBundleID(_ bundleID: String) {
+        // Disallow removing permanent system bundle IDs
+        guard !AppManager.isPermanentlyProtected(bundleID: bundleID) else { return }
+        protectedBundleIDs.remove(bundleID)
+        saveProtectedIDs()
+        refreshApps()
+    }
+
     
     public func quit(app: AppItem) {
         let reclaimed = app.memoryBytes
@@ -375,15 +412,16 @@ public final class AppState: ObservableObject {
     
     // MARK: - Persistence & Watchdog
     
-    private func loadProtectedIDs() {
+    public func loadProtectedIDs() {
         if let saved = UserDefaults.standard.stringArray(forKey: "protectedBundleIDs") {
-            protectedBundleIDs = Set(saved)
+            protectedBundleIDs = Set(saved).union(AppManager.defaultProtectedBundleIDs)
         } else {
             // Default initial protected apps
             protectedBundleIDs = AppManager.defaultProtectedBundleIDs
             saveProtectedIDs()
         }
     }
+
     
     public func saveProtectedIDs() {
         UserDefaults.standard.set(Array(protectedBundleIDs), forKey: "protectedBundleIDs")

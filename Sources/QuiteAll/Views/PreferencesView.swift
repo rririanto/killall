@@ -89,9 +89,7 @@ public struct PreferencesView: View {
                 Button("Add") {
                     let trimmed = newBundleIDText.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmed.isEmpty else { return }
-                    state.protectedBundleIDs.insert(trimmed)
-                    state.saveProtectedIDs()
-                    state.refreshApps()
+                    state.addProtectedBundleID(trimmed)
                     newBundleIDText = ""
                 }
                 .disabled(newBundleIDText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -99,6 +97,7 @@ public struct PreferencesView: View {
             
             List {
                 ForEach(Array(state.protectedBundleIDs).sorted(), id: \.self) { bundleID in
+                    let isPermanent = AppManager.isPermanentlyProtected(bundleID: bundleID)
                     HStack {
                         Image(systemName: "shield.fill")
                             .foregroundColor(.accentColor)
@@ -106,16 +105,29 @@ public struct PreferencesView: View {
                         Text(bundleID)
                             .font(.system(size: 12, design: .monospaced))
                         Spacer()
-                        Button {
-                            state.protectedBundleIDs.remove(bundleID)
-                            state.saveProtectedIDs()
-                            state.refreshApps()
-                        } label: {
-                            Image(systemName: "trash")
-                                .font(.system(size: 11))
+                        if isPermanent {
+                            Text("System Service")
+                                .font(.system(size: 10, weight: .medium))
                                 .foregroundColor(.secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.secondary.opacity(0.12))
+                                .clipShape(Capsule())
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary.opacity(0.6))
+                                .help("Permanently shielded system service")
+                        } else {
+                            Button {
+                                state.removeProtectedBundleID(bundleID)
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Remove protection")
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -135,6 +147,7 @@ public struct PreferencesView: View {
             }
         }
         .padding(8)
+
     }
     
     // MARK: - Auto-Quit Inactivity Tab

@@ -368,7 +368,169 @@ final class QuiteAllTests: XCTestCase {
         XCTAssertFalse(terminatedCalls.contains(where: { $0.id == 1003 }))
         XCTAssertTrue(state.reclaimedMemoryMessage?.contains("700 MB") == true)
     }
+    
+    func testDefaultProtectionInvariantsAndPersistence() {
+        let state = AppState.shared
+        
+        // 1. Critical system apps must be in default protected set and identified as permanent
+        XCTAssertTrue(AppManager.isPermanentlyProtected(bundleID: "com.apple.finder"))
+        XCTAssertTrue(AppManager.isPermanentlyProtected(bundleID: "com.apple.dock"))
+        XCTAssertTrue(AppManager.isPermanentlyProtected(bundleID: "com.apple.controlcenter"))
+        XCTAssertFalse(AppManager.isPermanentlyProtected(bundleID: "com.google.Chrome"))
+        
+        // 2. Toggling protection on a permanent system app must never unprotect it
+        let finderApp = AppItem(id: 1101, name: "Finder", bundleIdentifier: "com.apple.finder", isProtected: true, isSelected: false)
+        state.apps = [finderApp]
+        state.toggleProtection(app: finderApp)
+        XCTAssertTrue(state.apps.first?.isProtected == true)
+        XCTAssertTrue(state.protectedBundleIDs.contains("com.apple.finder"))
+        
+        // 3. Toggling protection on a regular app protects and deselects it
+        let chromeApp = AppItem(id: 1102, name: "Chrome", bundleIdentifier: "com.google.Chrome", isProtected: false, isSelected: true)
+        state.apps = [chromeApp]
+        state.toggleProtection(app: chromeApp)
+        XCTAssertTrue(state.apps.first?.isProtected == true)
+        XCTAssertFalse(state.apps.first?.isSelected == true)
+        XCTAssertTrue(state.protectedBundleIDs.contains("com.google.Chrome"))
+        
+        // 4. Persistence across reload: reload maintains user-protected and permanent system apps
+        state.loadProtectedIDs()
+        XCTAssertTrue(state.protectedBundleIDs.contains("com.google.Chrome"))
+        XCTAssertTrue(state.protectedBundleIDs.contains("com.apple.finder"))
+        XCTAssertTrue(state.protectedBundleIDs.contains("com.apple.dock"))
+        XCTAssertTrue(state.protectedBundleIDs.contains("com.apple.controlcenter"))
+        
+        // 5. Unprotecting a custom app restores unshielded state and persists
+        state.toggleProtection(app: state.apps[0])
+        XCTAssertFalse(state.apps.first?.isProtected == true)
+        XCTAssertFalse(state.protectedBundleIDs.contains("com.google.Chrome"))
+    }
+    
+    func testSmartMediaDetectionAndProtection() {
+        let detector = SmartMediaDetector.shared
+        defer { detector.playbackStateChecker = nil }
+        
+        // 1. Identification of supported media bundle IDs
+        XCTAssertTrue(detector.isMediaApp(bundleID: "com.spotify.client"))
+        XCTAssertTrue(detector.isMediaApp(bundleID: "com.apple.Music"))
+        XCTAssertTrue(detector.isMediaApp(bundleID: "com.tidal.desktop"))
+        XCTAssertTrue(detector.isMediaApp(bundleID: "org.videolan.vlc"))
+        XCTAssertFalse(detector.isMediaApp(bundleID: "com.apple.Safari"))
+        XCTAssertFalse(detector.isMediaApp(bundleID: "com.apple.Terminal"))
+        
+        // 2. Playback state detection with injectable checker
+        var queriedBundleIDs: [String] = []
+        detector.playbackStateChecker = { bundleID in
+            queriedBundleIDs.append(bundleID)
+            return bundleID == "com.spotify.client"
+        }
+        
+        XCTAssertTrue(detector.isActivelyPlaying(bundleID: "com.spotify.client"))
+        XCTAssertFalse(detector.isActivelyPlaying(bundleID: "com.apple.Music"))
+        XCTAssertFalse(detector.isActivelyPlaying(bundleID: "com.apple.Safari")) // Not a media app, checker not called
+        XCTAssertEqual(queriedBundleIDs, ["com.spotify.client", "com.apple.Music"])
+        
+        // 3. AppManager policy calculation for media apps
+        let manager = AppManager.shared
+        
+        // Case A: Skip music apps enabled -> media apps are protected
+        let spotifyShouldProtect = manager.shouldProtect(
+            bundleID: "com.spotify.client",
+            userProtectedIDs: [],
+            skipMusicApps: true
+        )
+        XCTAssertTrue(spotifyShouldProtect)
+        
+        // Case B: Skip music apps disabled, active playback detected -> protected
+        let activePlaybackShouldProtect = manager.shouldProtect(
+            bundleID: "com.spotify.client",
+            userProtectedIDs: [],
+            skipMusicApps: false
+        )
+        XCTAssertTrue(activePlaybackShouldProtect)
+        
+        // Case C: Skip music apps disabled, paused music player -> NOT protected
+        let pausedShouldProtect = manager.shouldProtect(
+            bundleID: "com.apple.Music",
+            userProtectedIDs: [],
+            skipMusicApps: false
+        )
+        XCTAssertFalse(pausedShouldProtect)
+    }
+    
+    func testProtectionExclusionFromBulkTerminationAndSelection() {
+        let state = AppState.shared
+        let manager = AppManager.shared
+        defer { manager.terminationHandler = nil }
+        
+        var terminatedIDs: [pid_t] = []
+        manager.terminationHandler = { app, _ in
+            terminatedIDs.append(app.id)
+            return true
+        }
+        
+        let sysProtectedApp = AppItem(id: 1201, name: "Dock", bundleIdentifier: "com.apple.dock", isProtected: true, isSelected: false)
+        let userProtectedApp = AppItem(id: 1202, name: "Music", bundleIdentifier: "com.apple.Music", isProtected: true, isSelected: false)
+        let standardApp1 = AppItem(id: 1203, name: "VSCode", bundleIdentifier: "com.microsoft.VSCode", isProtected: false, isSelected: false)
+        let standardApp2 = AppItem(id: 1204, name: "Firefox", bundleIdentifier: "org.mozilla.firefox", isProtected: false, isSelected: false)
+        
+        state.apps = [sysProtectedApp, userProtectedApp, standardApp1, standardApp2]
+        
+        // 1. toggleSelect on protected apps must not select them
+        state.toggleSelect(app: sysProtectedApp)
+        XCTAssertFalse(state.apps.first(where: { $0.id == 1201 })?.isSelected == true)
+        state.toggleSelect(app: userProtectedApp)
+        XCTAssertFalse(state.apps.first(where: { $0.id == 1202 })?.isSelected == true)
+        
+        // 2. toggleSelect on regular app works
+        state.toggleSelect(app: standardApp1)
+        XCTAssertTrue(state.apps.first(where: { $0.id == 1203 })?.isSelected == true)
+        
+        // 3. quitableCount strictly ignores protected apps
+        XCTAssertEqual(state.quitableCount, 2)
+        XCTAssertEqual(state.selectedCount, 1)
+        
+        // 4. toggleSelectAll only selects non-protected apps
+        state.toggleSelectAll()
+        XCTAssertEqual(state.selectedCount, 2)
+        XCTAssertFalse(state.apps.first(where: { $0.id == 1201 })?.isSelected == true)
+        XCTAssertFalse(state.apps.first(where: { $0.id == 1202 })?.isSelected == true)
+        XCTAssertTrue(state.apps.first(where: { $0.id == 1203 })?.isSelected == true)
+        XCTAssertTrue(state.apps.first(where: { $0.id == 1204 })?.isSelected == true)
+        
+        // 5. quitSelected strictly excludes protected apps
+        terminatedIDs.removeAll()
+        state.quitSelected(force: false)
+        XCTAssertEqual(terminatedIDs.count, 2)
+        XCTAssertTrue(terminatedIDs.contains(1203))
+        XCTAssertTrue(terminatedIDs.contains(1204))
+        XCTAssertFalse(terminatedIDs.contains(1201))
+        XCTAssertFalse(terminatedIDs.contains(1202))
+        
+        // 6. quitAll strictly excludes protected apps
+        terminatedIDs.removeAll()
+        state.apps = [sysProtectedApp, userProtectedApp, standardApp1, standardApp2]
+        state.quitAll(force: true)
+        XCTAssertEqual(terminatedIDs.count, 2)
+        XCTAssertTrue(terminatedIDs.contains(1203))
+        XCTAssertTrue(terminatedIDs.contains(1204))
+        XCTAssertFalse(terminatedIDs.contains(1201))
+        XCTAssertFalse(terminatedIDs.contains(1202))
+        
+        // 7. addProtectedBundleID and removeProtectedBundleID with permanent protection guard
+        state.addProtectedBundleID("com.custom.app")
+        XCTAssertTrue(state.protectedBundleIDs.contains("com.custom.app"))
+        state.removeProtectedBundleID("com.custom.app")
+        XCTAssertFalse(state.protectedBundleIDs.contains("com.custom.app"))
+        
+        // Permanent system apps cannot be removed via removeProtectedBundleID
+        state.removeProtectedBundleID("com.apple.finder")
+        XCTAssertTrue(state.protectedBundleIDs.contains("com.apple.finder"))
+    }
 }
+
+
+
 
 
 

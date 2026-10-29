@@ -22,15 +22,47 @@ public final class AppManager {
         "com.apple.loginwindow"
     ]
     
+    /// Returns true if the bundle ID belongs to permanently shielded macOS services
+    public static func isPermanentlyProtected(bundleID: String?) -> Bool {
+        guard let bundleID = bundleID else { return false }
+        return defaultProtectedBundleIDs.contains(bundleID)
+    }
+    
     // Popular media apps to protect when "Skip Music Apps" is enabled
-    public static let mediaBundleIDs: Set<String> = [
-        "com.apple.Music",
-        "com.spotify.client",
-        "com.tidal.desktop",
-        "com.apple.podcasts",
-        "org.videolan.vlc",
-        "com.amazon.music"
-    ]
+    public static var mediaBundleIDs: Set<String> {
+        SmartMediaDetector.supportedMediaBundleIDs
+    }
+    
+    /// Evaluates whether an application should be shielded from termination
+    public func shouldProtect(
+        bundleID: String?,
+        userProtectedIDs: Set<String>,
+        skipMusicApps: Bool
+    ) -> Bool {
+        guard let bundleID = bundleID else { return false }
+        
+        // 1. Essential system services (Finder, Dock, Control Center) are permanently shielded
+        if AppManager.isPermanentlyProtected(bundleID: bundleID) {
+            return true
+        }
+        
+        // 2. User custom whitelisted apps
+        if userProtectedIDs.contains(bundleID) {
+            return true
+        }
+        
+        // 3. Smart media player protection
+        if SmartMediaDetector.shared.isMediaApp(bundleID: bundleID) {
+            if skipMusicApps {
+                return true
+            }
+            if SmartMediaDetector.shared.isActivelyPlaying(bundleID: bundleID) {
+                return true
+            }
+        }
+        
+        return false
+    }
     
     private init() {}
     
@@ -61,14 +93,15 @@ public final class AppManager {
                 continue
             }
             
-            let bundleID = app.bundleIdentifier ?? ""
-            var isProtected = protectedIDs.contains(bundleID) || AppManager.defaultProtectedBundleIDs.contains(bundleID)
-            
-            if skipMusicApps && AppManager.mediaBundleIDs.contains(bundleID) {
-                isProtected = true
-            }
+            let bundleID = app.bundleIdentifier
+            let isProtected = shouldProtect(
+                bundleID: bundleID,
+                userProtectedIDs: protectedIDs,
+                skipMusicApps: skipMusicApps
+            )
             
             let metrics = ProcessMonitor.shared.metrics(for: app.processIdentifier)
+
             
             let item = AppItem(
                 runningApp: app,

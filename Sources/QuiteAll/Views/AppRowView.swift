@@ -12,28 +12,43 @@ public struct AppRowView: View {
         self.isHighlighted = isHighlighted
     }
     
+    private var isPermanentlyProtected: Bool {
+        AppManager.isPermanentlyProtected(bundleID: app.bundleIdentifier)
+    }
+    
     public var body: some View {
         HStack(spacing: 8) {
-            // 1. Checkbox (Square like QuitAll)
-            Button {
-                state.toggleSelect(app: app)
-            } label: {
-                if app.isProtected {
+            // 1. Checkbox or Shield Toggle
+            if app.isProtected {
+                Button {
+                    if !isPermanentlyProtected {
+                        state.toggleProtection(app: app)
+                    }
+                } label: {
                     Image(systemName: "shield.fill")
                         .font(.system(size: 14))
                         .foregroundColor(Color(nsColor: .systemBlue))
-                } else if app.isSelected {
-                    Image(systemName: "checkmark.square.fill")
-                        .font(.system(size: 15))
-                        .foregroundColor(Color(nsColor: .systemBlue))
-                } else {
-                    Image(systemName: "square")
-                        .font(.system(size: 15))
-                        .foregroundColor(Color.secondary.opacity(0.45))
                 }
+                .buttonStyle(.plain)
+                .disabled(isPermanentlyProtected)
+                .help(isPermanentlyProtected ? "Permanently shielded system service" : "Protected from Quit All. Click to unprotect.")
+            } else {
+                Button {
+                    state.toggleSelect(app: app)
+                } label: {
+                    if app.isSelected {
+                        Image(systemName: "checkmark.square.fill")
+                            .font(.system(size: 15))
+                            .foregroundColor(Color(nsColor: .systemBlue))
+                    } else {
+                        Image(systemName: "square")
+                            .font(.system(size: 15))
+                            .foregroundColor(Color.secondary.opacity(0.45))
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Select for quitting")
             }
-            .buttonStyle(.plain)
-            .disabled(app.isProtected)
             
             // 2. App Icon
             Image(nsImage: app.icon)
@@ -53,9 +68,15 @@ public struct AppRowView: View {
             
             // 4. Options Menu (•••)
             Menu {
-                Button(app.isProtected ? "Unprotect (Allow Quitting)" : "Protect (Never Quit)") {
-                    state.toggleProtection(app: app)
+                if isPermanentlyProtected {
+                    Button("Permanently Shielded (System Service)") {}
+                        .disabled(true)
+                } else {
+                    Button(app.isProtected ? "Unprotect (Allow Quitting)" : "Protect (Never Quit)") {
+                        state.toggleProtection(app: app)
+                    }
                 }
+
                 Button("Relaunch App") {
                     state.restart(app: app)
                 }

@@ -7,9 +7,10 @@ Comprehensive protection safeguards preventing accidental termination of critica
 
 **Status:** ready-for-agent
 
-- [ ] Critical system applications (Finder, Dock, Control Center) are shielded by default.
-- [ ] Users can toggle protection for any app directly from the row menu (`•••`) or Preferences.
-- [ ] Protected apps render a shield icon, disable row checkboxes, and are excluded from "Quit All" / "Select All" actions.
-- [ ] Smart media detection identifies running music players (Spotify, Apple Music) and prevents accidental closure.
-- [ ] Protected bundle identifiers persist across application restarts.
-- [ ] Automated tests verify default protection invariants, persistence, and exclusion from bulk termination.
+- [x] Critical system applications (Finder, Dock, Control Center) are shielded by default.
+- [x] Users can toggle protection for any app directly from the row menu (`•••`) or Preferences.
+- [x] Protected apps render a shield icon, disable row checkboxes, and are excluded from "Quit All" / "Select All" actions.
+- [x] Smart media detection identifies running music players (Spotify, Apple Music) and prevents accidental closure.
+- [x] Protected bundle identifiers persist across application restarts.
+- [x] Automated tests verify default protection invariants, persistence, and exclusion from bulk termination.
+
