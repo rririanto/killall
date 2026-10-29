@@ -1,0 +1,5 @@
+.build/
+QuiteAll.app/
+.DS_Store
+*.swp
+*~
