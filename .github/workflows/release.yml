@@ -1,0 +1,37 @@
+name: Release
+name: Release Multi-Arch Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build & Release Multi-Architecture Bundles
+    runs-on: macos-14
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app || true
+
+      - name: Verify Swift version
+        run: swift --version
+
+      - name: Build All Multi-Architecture Packages
+        run: ./scripts/build_app.sh --all
+
+      - name: Upload Binaries to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: KillAll-*.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true

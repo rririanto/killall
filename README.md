@@ -9,6 +9,7 @@
 [![Swift](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift)](https://swift.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Apple%20Silicon%20%7C%20Intel-lightgrey)](https://apple.com)
+[![Release](https://img.shields.io/github/v/release/rririanto/killall?display_name=tag&logo=github)](https://github.com/rririanto/killall/releases/latest)
 [![CI](https://github.com/rririanto/killall/actions/workflows/ci.yml/badge.svg)](https://github.com/rririanto/killall/actions)
 
 <p align="center">
@@ -16,6 +17,23 @@
 </p>
 
 </div>
+
+---
+
+## 📥 Download
+
+Download the latest pre-built `.app` from [GitHub Releases](https://github.com/rririanto/killall/releases/latest):
+
+| Download | Architecture | Compatibility |
+|---|---|---|
+| **[KillAll-v2.0.0-Universal.zip](https://github.com/rririanto/killall/releases/download/v2.0.0/KillAll-v2.0.0-Universal.zip)** | **Universal 2** *(Recommended)* | Runs natively on **both Apple Silicon & Intel** Macs |
+| **[KillAll-v2.0.0-AppleSilicon-arm64.zip](https://github.com/rririanto/killall/releases/download/v2.0.0/KillAll-v2.0.0-AppleSilicon-arm64.zip)** | **Apple Silicon** (`arm64`) | Apple Silicon Macs (M1, M2, M3, M4) |
+| **[KillAll-v2.0.0-Intel-x86_64.zip](https://github.com/rririanto/killall/releases/download/v2.0.0/KillAll-v2.0.0-Intel-x86_64.zip)** | **Intel** (`x86_64`) | Intel Core i3 / i5 / i7 / i9 Macs |
+
+**Quick Install**:
+1. Download your preferred archive above.
+2. Unzip and drag **`KillAll.app`** to `/Applications/`.
+3. Open `KillAll.app` — click the lightning bolt ⚡ in your macOS menu bar!
 
 ---
 
