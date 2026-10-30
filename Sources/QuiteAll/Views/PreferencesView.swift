@@ -256,7 +256,7 @@ public struct PreferencesView: View {
             VStack(spacing: 4) {
                 Text("• Zero telemetry, zero bloat, zero background drain")
                 Text("• Accurate real-time CPU & RAM metrics via libproc")
-                Text("• Reverse engineered from QuitAll with REA & rebuilt for macOS")
+                Text("• 100% native Swift 6 and SwiftUI architecture for macOS")
             }
             .font(.system(size: 11))
             .foregroundColor(.secondary.opacity(0.8))

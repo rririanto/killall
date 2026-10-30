@@ -115,7 +115,7 @@ public struct AppRowView: View {
                 .fixedSize(horizontal: true, vertical: false)
                 .frame(width: 44, alignment: .trailing)
             
-            // 6. Single Quit Button (Power icon like QuitAll)
+            // 6. Single Quit Button (Power icon)
             if !app.isProtected {
                 Button {
                     if state.isOptionKeyPressed {
