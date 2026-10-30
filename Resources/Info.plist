@@ -5,15 +5,15 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>QuiteAll</string>
+    <string>KillAll</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
-    <string>com.quiteall.app</string>
+    <string>com.killall.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>QuiteAll</string>
+    <string>KillAll</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -25,8 +25,8 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSAppleEventsUsageDescription</key>
-    <string>QuiteAll requires access to Apple Events to un-minimize windows and close Finder windows.</string>
+    <string>KillAll requires access to Apple Events to un-minimize windows and close Finder windows.</string>
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2026 QuiteAll. All rights reserved.</string>
+    <string>Copyright © 2026 KillAll Contributors. All rights reserved.</string>
 </dict>
 </plist>

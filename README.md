@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ QuiteAll
+# ⚡ KillAll
 
 **The modern, lightning-fast app manager & task killer for macOS.**  
 *Crafted in pure Swift 6 and SwiftUI. Zero telemetry, zero bloat, instant response.*
@@ -9,10 +9,10 @@
 [![Swift](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift)](https://swift.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Apple%20Silicon%20%7C%20Intel-lightgrey)](https://apple.com)
-[![CI](https://github.com/rririanto/quiteall/actions/workflows/ci.yml/badge.svg)](https://github.com/rririanto/quiteall/actions)
+[![CI](https://github.com/rririanto/killall/actions/workflows/ci.yml/badge.svg)](https://github.com/rririanto/killall/actions)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/rririanto/quiteall/main/Resources/AppIcon.icns" alt="QuiteAll Icon" width="128" height="128" />
+  <img src="https://raw.githubusercontent.com/rririanto/killall/main/Resources/AppIcon.icns" alt="KillAll Icon" width="128" height="128" />
 </p>
 
 </div>
@@ -44,7 +44,7 @@
 
 | Shortcut | Action | Description |
 |---|---|---|
-| `⌥ ⌘ Q` | **Toggle QuiteAll HUD** | Instant popover access from any active application |
+| `⌥ ⌘ Q` | **Toggle KillAll HUD** | Instant popover access from any active application |
 | `⌥ ⇧ ⌘ Q` | **Force Quit All** | Immediately terminates all non-protected apps with `SIGKILL` |
 | `⌥ ⌘ O` | **Quit Others** | Terminates all other apps while keeping your current frontmost app active |
 
@@ -64,14 +64,14 @@
 ## 🏗 Architecture & Code Structure
 
 ```
-quiteall/
+killall/
 ├── Package.swift                  # Swift Package Manager manifest
-├── QuiteAll.app/                  # Standalone macOS Application Bundle
+├── KillAll.app/                   # Standalone macOS Application Bundle
 ├── Resources/
 │   ├── Info.plist                 # LSUIElement menu-bar metadata
 │   ├── AppIcon.icns               # Clean custom application icon
 │   └── Sounds/                    # Synthesized audio effects
-├── Sources/QuiteAll/
+├── Sources/KillAll/
 │   ├── Main.swift                 # App bootstrap
 │   ├── AppDelegate.swift          # NSApplicationDelegate & accessory activation policy
 │   ├── Models/
@@ -97,8 +97,8 @@ quiteall/
 │   └── Window/
 │       ├── StatusBarController.swift # NSStatusItem & popover coordinator
 │       └── FloatingHUDWindow.swift   # Non-activating panel window
-└── Tests/QuiteAllTests/
-    └── QuiteAllTests.swift        # Comprehensive test suite (31 automated unit tests)
+└── Tests/KillAllTests/
+    └── KillAllTests.swift         # Comprehensive test suite (31 automated unit tests)
 ```
 
 ---
@@ -111,8 +111,8 @@ quiteall/
 
 ### Running Locally with SwiftPM:
 ```bash
-git clone https://github.com/rririanto/quiteall.git
-cd quiteall
+git clone https://github.com/rririanto/killall.git
+cd killall
 swift run
 ```
 
@@ -128,17 +128,17 @@ swift test
 
 To install permanently:
 ```bash
-cp -R QuiteAll.app /Applications/
-open /Applications/QuiteAll.app
+cp -R KillAll.app /Applications/
+open /Applications/KillAll.app
 ```
 
 ---
 
 ## ⚖️ Legal & Trademark Disclaimer
 
-QuiteAll is an independent, original, open-source project written from scratch in Swift and SwiftUI.
+KillAll is an independent, original, open-source project written from scratch in Swift and SwiftUI.
 
-- QuiteAll is **NOT** affiliated, associated, authorized, endorsed by, or in any way officially connected with *QuitAll* or its creators.
+- KillAll is **NOT** affiliated, associated, authorized, endorsed by, or in any way officially connected with *QuitAll* or its creators.
 - All product names, logos, trademarks, and registered trademarks mentioned are property of their respective owners. Their use does not imply any affiliation or endorsement.
 - All code, audio effects, and graphical assets included in this repository are 100% original and distributed under the permissive MIT License.
 
@@ -147,3 +147,4 @@ QuiteAll is an independent, original, open-source project written from scratch i
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+

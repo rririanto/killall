@@ -44,7 +44,7 @@ public struct PreferencesView: View {
     private var generalTab: some View {
         Form {
             Section {
-                Toggle("Launch QuiteAll automatically at login", isOn: $launchAtLogin)
+                Toggle("Launch KillAll automatically at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { newValue in
                         LaunchAtLogin.shared.setEnabled(newValue)
                     }
@@ -190,7 +190,7 @@ public struct PreferencesView: View {
                 .font(.system(size: 13, weight: .bold))
             
             VStack(spacing: 8) {
-                shortcutRow(title: "Toggle QuiteAll HUD", keys: "⌥ ⌘ Q")
+                shortcutRow(title: "Toggle KillAll HUD", keys: "⌥ ⌘ Q")
                 shortcutRow(title: "Force Quit All Apps", keys: "⌥ ⇧ ⌘ Q")
                 shortcutRow(title: "Quit Others (Keep Active App)", keys: "⌥ ⌘ O")
             }
@@ -238,7 +238,7 @@ public struct PreferencesView: View {
                 .resizable()
                 .frame(width: 56, height: 56)
             
-            Text("QuiteAll")
+            Text("KillAll")
                 .font(.system(size: 18, weight: .bold))
             
             Text("Version 2.0.0 (Native Swift 6 & SwiftUI)")

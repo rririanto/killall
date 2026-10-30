@@ -21,7 +21,7 @@ public final class SoundService {
         }
         let fallbackPaths = [
             "Resources/Sounds/\(name).aiff",
-            "QuiteAll.app/Contents/Resources/\(name).aiff"
+            "KillAll.app/Contents/Resources/\(name).aiff"
         ]
         for path in fallbackPaths {
             if FileManager.default.fileExists(atPath: path) {

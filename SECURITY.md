@@ -9,9 +9,9 @@
 
 ## Reporting a Vulnerability
 
-We take the security and privacy of QuiteAll very seriously. Since QuiteAll manages local processes and system signals, secure and responsible operation is essential.
+We take the security and privacy of KillAll very seriously. Since KillAll manages local processes and system signals, secure and responsible operation is essential.
 
-If you believe you have found a security vulnerability in QuiteAll:
+If you believe you have found a security vulnerability in KillAll:
 1. Please do **NOT** open a public issue.
 2. Email the maintainer directly or submit a private security advisory through GitHub Security Advisories.
 3. Include detailed steps to reproduce the issue and any relevant logs or crash reports.

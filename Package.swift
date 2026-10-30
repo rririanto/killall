@@ -2,25 +2,25 @@
 import PackageDescription
 
 let package = Package(
-    name: "QuiteAll",
+    name: "KillAll",
     platforms: [
         .macOS(.v13)
     ],
     products: [
         .executable(
-            name: "QuiteAll",
-            targets: ["QuiteAll"]
+            name: "KillAll",
+            targets: ["KillAll"]
         )
     ],
     targets: [
         .executableTarget(
-            name: "QuiteAll",
-            path: "Sources/QuiteAll"
+            name: "KillAll",
+            path: "Sources/KillAll"
         ),
         .testTarget(
-            name: "QuiteAllTests",
-            dependencies: ["QuiteAll"],
-            path: "Tests/QuiteAllTests"
+            name: "KillAllTests",
+            dependencies: ["KillAll"],
+            path: "Tests/KillAllTests"
         )
     ]
 )

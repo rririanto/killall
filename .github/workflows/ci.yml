@@ -30,7 +30,7 @@ jobs:
 
       - name: Verify App Bundle Structure
         run: |
-          test -f QuiteAll.app/Contents/MacOS/QuiteAll
-          test -f QuiteAll.app/Contents/Info.plist
-          test -f QuiteAll.app/Contents/Resources/AppIcon.icns
-          codesign -dv QuiteAll.app
+          test -f KillAll.app/Contents/MacOS/KillAll
+          test -f KillAll.app/Contents/Info.plist
+          test -f KillAll.app/Contents/Resources/AppIcon.icns
+          codesign -dv KillAll.app

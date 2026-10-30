@@ -72,7 +72,7 @@ public final class StatusBarController: NSObject, NSPopoverDelegate {
         guard let button = statusItem.button else { return }
         
         let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
-        let icon = NSImage(systemSymbolName: "xmark.app", accessibilityDescription: "QuiteAll")?.withSymbolConfiguration(config)
+        let icon = NSImage(systemSymbolName: "xmark.app", accessibilityDescription: "KillAll")?.withSymbolConfiguration(config)
         icon?.isTemplate = true
         button.image = icon
         button.imagePosition = .imageLeading
@@ -137,7 +137,7 @@ public final class StatusBarController: NSObject, NSPopoverDelegate {
             defer: false
         )
         window.center()
-        window.title = "QuiteAll Settings"
+        window.title = "KillAll Settings"
         window.contentView = hosting
         window.isReleasedWhenClosed = false
         

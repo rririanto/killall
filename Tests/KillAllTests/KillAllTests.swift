@@ -1,8 +1,8 @@
 import XCTest
 import AppKit
-@testable import QuiteAll
+@testable import KillAll
 
-final class QuiteAllTests: XCTestCase {
+final class KillAllTests: XCTestCase {
     func testFilterCategories() {
         XCTAssertEqual(FilterCategory.allCases.count, 5)
         XCTAssertEqual(FilterCategory.all.title, "All")

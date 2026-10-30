@@ -78,7 +78,7 @@ public final class AppManager {
         var result: [AppItem] = []
         
         for app in apps {
-            // Exclude QuiteAll itself
+            // Exclude KillAll itself
             if app.processIdentifier == currentPID {
                 continue
             }

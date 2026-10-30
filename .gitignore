@@ -1,4 +1,5 @@
 .build/
+KillAll.app/
 QuiteAll.app/
 .DS_Store
 *.swp

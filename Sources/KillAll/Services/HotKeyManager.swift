@@ -42,7 +42,7 @@ public final class HotKeyManager {
         actionHandlers[action] = handler
         registeredBindings[action] = (keyCode, modifiers)
         
-        let hotKeyID = EventHotKeyID(signature: OSType(0x51414C4C), id: action.rawValue) // 'QALL'
+        let hotKeyID = EventHotKeyID(signature: OSType(0x4B414C4C), id: action.rawValue) // 'KALL'
         var hotKeyRef: EventHotKeyRef?
         let status = RegisterEventHotKey(
             keyCode,

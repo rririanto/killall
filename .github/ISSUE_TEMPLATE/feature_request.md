@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest an idea or new capability for QuiteAll
+about: Suggest an idea or new capability for KillAll
 title: '[FEAT] '
 labels: ['enhancement', 'needs-triage']
 assignees: ''

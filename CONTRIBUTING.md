@@ -1,10 +1,10 @@
-# Contributing to QuiteAll
+# Contributing to KillAll
 
-Thank you for your interest in contributing to QuiteAll! We welcome bug fixes, documentation improvements, architectural enhancements, and feature requests.
+Thank you for your interest in contributing to KillAll! We welcome bug fixes, documentation improvements, architectural enhancements, and feature requests.
 
 ## Architecture Philosophy
 
-QuiteAll is built on three core pillars:
+KillAll is built on three core pillars:
 1. **Zero Bloat & Zero Telemetry**: Absolutely no third-party tracking, analytics, DRM, or background metric drain.
 2. **Native Performance**: Pure Swift 6 + SwiftUI using direct Darwin `libproc` (`proc_pidinfo`) APIs for lightweight, instantaneous execution (<15MB RAM footprint).
 3. **Safety & Non-Destructive Protection**: Critical system services and user-protected apps must always remain safeguarded against bulk termination.
@@ -18,8 +18,8 @@ QuiteAll is built on three core pillars:
 ### Building & Running
 Clone the repository:
 ```bash
-git clone https://github.com/rririanto/quiteall.git
-cd quiteall
+git clone https://github.com/rririanto/killall.git
+cd killall
 ```
 
 Run tests via Swift Package Manager:
@@ -34,7 +34,7 @@ Build the release application bundle:
 
 ### Testing Guidelines
 - All new features and bug fixes should follow test-driven patterns where feasible.
-- Tests live in `Tests/QuiteAllTests/`.
+- Tests live in `Tests/KillAllTests/`.
 - Run `swift test` before submitting a pull request to ensure all tests pass.
 
 ### Pull Request Process

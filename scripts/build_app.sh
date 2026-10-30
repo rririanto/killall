@@ -4,24 +4,24 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo "🚀 Building QuiteAll (Release)..."
+echo "🚀 Building KillAll (Release)..."
 cd "$PROJECT_DIR"
 swift build -c release
 
-BIN_PATH="$(swift build -c release --show-bin-path)/QuiteAll"
-APP_DIR="$PROJECT_DIR/QuiteAll.app"
+BIN_PATH="$(swift build -c release --show-bin-path)/KillAll"
+APP_DIR="$PROJECT_DIR/KillAll.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 
-echo "📦 Packaging QuiteAll.app..."
+echo "📦 Packaging KillAll.app..."
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR"
 mkdir -p "$RESOURCES_DIR"
 
 # Copy binary
-cp "$BIN_PATH" "$MACOS_DIR/QuiteAll"
-chmod +x "$MACOS_DIR/QuiteAll"
+cp "$BIN_PATH" "$MACOS_DIR/KillAll"
+chmod +x "$MACOS_DIR/KillAll"
 
 # Copy Info.plist
 cp "$PROJECT_DIR/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
@@ -37,7 +37,7 @@ if [ -d "$PROJECT_DIR/Resources/Sounds" ]; then
 fi
 
 # Ad-hoc codesign
-echo "🔏 Code-signing QuiteAll.app..."
+echo "🔏 Code-signing KillAll.app..."
 codesign --force --deep --sign - "$APP_DIR"
 
 echo "✅ Build complete: $APP_DIR"
