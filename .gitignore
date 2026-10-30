@@ -1,6 +1,8 @@
 .build/
 KillAll.app/
 QuiteAll.app/
+*.zip
 .DS_Store
 *.swp
 *~
+
